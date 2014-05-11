@@ -1,9 +1,28 @@
 #!flask/bin/python
+
 from flask import Flask, jsonify, abort, request, make_response, url_for
 from flask.ext.httpauth import HTTPBasicAuth
 #from flask.ext.sqlalchemy import SQLAlchemy
+
+import Adafruit_BBIO.GPIO as GPIO
+import Adafruit_BBIO.ADC as ADC
+
+from time import sleep
+
+""" BeagleBone Black setup """
+GPIO.setup("P8_11", GPIO.OUT)
+GPIO.setup("P8_03", GPIO.OUT)
+ADC.setup()
+
+""" Enable MCP9700 """
+GPIO.setup("P8_03", GPIO.HIGH)
+
+
  
 app = Flask(__name__, static_url_path = "")
+
+#app.run(host='192.168.1.107', port=5001)
+
 auth = HTTPBasicAuth()
 #db = SQLAlchemy(app)
 
@@ -42,7 +61,7 @@ devices = [
     {
         'id': 2,
         'type': u'led',
-        'title': u'LED ON',
+        'title': u'LED',
         'description': u'Turn a led on', 
         'value': 1,
         'active': True
@@ -93,7 +112,13 @@ def do_something(pin_to_change, action):
 def get_temperature():
     device = filter(lambda t: t['title'] == 'Temperature', devices)
     #device[0]['value'] = "15" #request.json.get('status', device[0]['status'])
-    device[0]['value'] = '4' #update the temperature
+    
+    """ Read ambient temperature """
+    reading = ADC.read("P9_39")
+    millivolts = reading * 1800
+    temp_c = "{0:.1f}".format((millivolts - 500) / 10)
+    
+    device[0]['value'] = str(temp_c) #update the temperature
     if len(device) == 0:
         abort(404)
     return jsonify( { 'device': make_public(device[0]) } )
@@ -167,7 +192,14 @@ def update_device(device_id):
     device[0]['description'] = request.json.get('description', device[0]['description'])
     device[0]['active'] = request.json.get('active', device[0]['active'])
     device[0]['value'] = request.json.get('value', device[0]['value'])
-    #update_status() update led status
+    
+    """ update led status """
+    if device[0]['value'] == 1:
+        GPIO.output("P8_11", GPIO.HIGH)
+    elif device[0]['value'] == 0:
+        GPIO.output("P8_11", GPIO.LOW)
+        
+    #update_status(device[0]['value']) #update led status
     return jsonify( { 'device': make_public(device[0]) } )
     
 @app.route('/remote/api/v1.0/devices/<int:device_id>', methods = ['DELETE'])
@@ -179,5 +211,13 @@ def delete_device(device_id):
     devices.remove(device[0])
     return jsonify( { 'result': True } )
     
+def update_status(status):
+    device = filter(lambda t: t['title'] == 'LED', devices)
+    device[0]['value'] = '1' #update the led status
+    if len(device) == 0:
+        abort(404)
+    return jsonify( { 'device': make_public(device[0]) } )
+    
+    
 if __name__ == '__main__':
-    app.run(debug = True)
+    app.run(host='192.168.1.107', port = 5001, debug = True)
