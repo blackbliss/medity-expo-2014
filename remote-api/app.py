@@ -4,18 +4,18 @@ from flask import Flask, jsonify, abort, request, make_response, url_for
 from flask.ext.httpauth import HTTPBasicAuth
 #from flask.ext.sqlalchemy import SQLAlchemy
 
-import Adafruit_BBIO.GPIO as GPIO
-import Adafruit_BBIO.ADC as ADC
+#import Adafruit_BBIO.GPIO as GPIO
+#import Adafruit_BBIO.ADC as ADC
 
 from time import sleep
 
 """ BeagleBone Black setup """
-GPIO.setup("P8_11", GPIO.OUT)
-GPIO.setup("P8_03", GPIO.OUT)
-ADC.setup()
+#GPIO.setup("P8_11", GPIO.OUT)
+#GPIO.setup("P8_03", GPIO.OUT)
+#ADC.setup()
 
 """ Enable MCP9700 """
-GPIO.setup("P8_03", GPIO.HIGH)
+#GPIO.setup("P8_03", GPIO.HIGH)
 
 
  
@@ -39,6 +39,7 @@ def unauthorized():
     
 @app.errorhandler(400)
 def not_found(error):
+    print request.data
     return make_response(jsonify( { 'error': 'Bad request' } ), 400)
  
 @app.errorhandler(404)
@@ -114,10 +115,10 @@ def get_temperature():
     #device[0]['value'] = "15" #request.json.get('status', device[0]['status'])
     
     """ Read ambient temperature """
-    reading = ADC.read("P9_39")
+    #reading = ADC.read("P9_39")
     millivolts = reading * 1800
-    temp_c = "{0:.1f}".format((millivolts - 500) / 10)
-    
+    #temp_c = "{0:.1f}".format((millivolts - 500) / 10)
+    temp_c= "25.0"
     device[0]['value'] = str(temp_c) #update the temperature
     if len(device) == 0:
         abort(404)
@@ -149,11 +150,15 @@ def make_public(device):
 @app.route('/remote/api/v1.0/devices', methods = ['GET'])
 #@auth.login_required
 def get_devices():
+    json = request.json
+    print(json)
+    print request.data
     return jsonify( { 'devices': map(make_public, devices) } )
  
 @app.route('/remote/api/v1.0/devices/<int:device_id>', methods = ['GET'])
 #@auth.login_required
 def get_device(device_id):
+    print request.data
     device = filter(lambda t: t['id'] == device_id, devices)
     if len(device) == 0:
         abort(404)
@@ -177,6 +182,7 @@ def create_device():
 @app.route('/remote/api/v1.0/devices/<int:device_id>', methods = ['PUT'])
 #@auth.login_required
 def update_device(device_id):
+    print request.data
     device = filter(lambda t: t['id'] == device_id, devices)
     if len(device) == 0:
         abort(404)
@@ -194,10 +200,10 @@ def update_device(device_id):
     device[0]['value'] = request.json.get('value', device[0]['value'])
     
     """ update led status """
-    if device[0]['value'] == 1:
-        GPIO.output("P8_11", GPIO.HIGH)
-    elif device[0]['value'] == 0:
-        GPIO.output("P8_11", GPIO.LOW)
+    #if device[0]['value'] == 1:
+    #    GPIO.output("P8_11", GPIO.HIGH)
+    #elif device[0]['value'] == 0:
+    #    GPIO.output("P8_11", GPIO.LOW)
         
     #update_status(device[0]['value']) #update led status
     return jsonify( { 'device': make_public(device[0]) } )
@@ -212,6 +218,7 @@ def delete_device(device_id):
     return jsonify( { 'result': True } )
     
 def update_status(status):
+    print request.data
     device = filter(lambda t: t['title'] == 'LED', devices)
     device[0]['value'] = '1' #update the led status
     if len(device) == 0:
@@ -220,4 +227,4 @@ def update_status(status):
     
     
 if __name__ == '__main__':
-    app.run(host='192.168.1.107', port = 5001, debug = True)
+    app.run(host='192.168.1.111', port = 5001, debug = True)
